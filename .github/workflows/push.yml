@@ -1,0 +1,33 @@
+name: Atualizar data no index.html
+
+on:
+  push:
+    branches:
+      - main  # ou 'master', se for seu branch principal
+
+jobs:
+  atualizar-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clonar o repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Atualizar data no index.html
+        run: |
+          data=$(date +'%d/%m/%Y')
+          sed -i "s|<div class=\"report-date\">Atualizado em: .*<\/div>|<div class=\"report-date\">Atualizado em: $data<\/div>|" index.html
+
+      - name: Commit e push se houver mudanças
+        run: |
+          if git diff --quiet; then
+            echo "Nenhuma alteração detectada."
+          else
+            git add index.html
+            git commit -m "Atualização automática da data para $data"
+            git push
+          fi
