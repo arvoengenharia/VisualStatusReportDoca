@@ -1,86 +1,74 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Relatório Visual da Obra</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visual Status Report</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- CryptoJS para o hash da senha (mesma lib que você já usava) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
+  <!-- JSON embutido -->
+  <script id="setores-json" type="application/json">
+{
+  "Doca": 11
+}
+</script>
+
   <!-- Tela de login -->
-  <div id="loginPage" class="login-overlay">
-    <div class="login-card">
+  <div class="login-overlay" id="loginPage">
+    <form class="login-card" id="loginForm" autocomplete="off">
       <div class="login-logos">
-        <img src="logos/arvo.png" alt="Arvo Engenharia" />
-        <img src="logos/cliente.png" alt="Cliente" />
+        <img src="logos/arvo.png" alt="Logo Arvo">
+        <img src="logos/cliente.png" alt="Logo Cliente">
       </div>
-      <div class="login-title">Relatório Visual da Obra</div>
-      <form id="loginForm">
-        <div class="login-input-wrap">
-          <span class="login-lock">🔒</span>
-          <input
-            id="senhaInput"
-            type="password"
-            placeholder="Senha"
-            autocomplete="off"
-          />
-        </div>
-        <button type="submit" class="login-btn">Entrar</button>
-        <div id="loginError" class="login-error"></div>
-      </form>
-    </div>
+      <div class="login-title">Acesso restrito</div>
+      <div class="login-input-wrap">
+        <span class="login-lock">
+          <svg width="22" height="22" viewBox="0 0 20 20" fill="none">
+            <rect x="4" y="8" width="12" height="8" rx="3" fill="#6b7280"/>
+            <rect x="7" y="4" width="6" height="6" rx="3" fill="none" stroke="#6b7280" stroke-width="2"/>
+          </svg>
+        </span>
+        <input id="senhaInput" type="password" placeholder="Digite a senha" autofocus autocomplete="current-password" />
+      </div>
+      <button class="login-btn" type="submit">Entrar</button>
+      <div class="login-error" id="loginError"></div>
+    </form>
   </div>
 
   <!-- Conteúdo principal -->
-  <div id="appContent" class="app" style="display:none;">
-    <!-- Menu lateral -->
+  <div id="appContent" style="display: flex; width: 100vw;">
     <div class="menu">
       <div class="logos">
-        <img src="logos/arvo.png" alt="Arvo Engenharia" />
-        <img src="logos/cliente.png" alt="Cliente" />
+        <img src="logos/arvo.png" alt="Logo Arvo">
+        <img src="logos/cliente.png" alt="Logo Cliente">
       </div>
       <h1>SETOR</h1>
       <div id="setoresContainer"></div>
-    </div>
-
-    <!-- Área de imagem e navegação -->
-    <div class="content">
-      <div class="report-header">
-        <div class="report-title">Relatório Visual da Obra</div>
-        <div class="report-date">
-          <!-- você pode preencher a data via JS se quiser -->
-        </div>
-      </div>
-
-      <div class="image-container">
-        <img id="setorImagem" src="" alt="Imagem do setor" />
-      </div>
-
-      <div id="navButtons">
-        <button type="button" onclick="navegarImagem(-1)">Semana Anterior</button>
-        <button type="button" onclick="navegarImagem(1)">Próxima Semana</button>
-      </div>
-
-      <div id="legendaImagem" class="legenda"></div>
 
       <div class="pontos-area">
-        <h2 id="tituloPontos" style="display:none;">Pontos de Registro</h2>
+        <h2 id="tituloPontos" style="display: none;">PONTOS</h2>
         <div id="pontosContainer" class="pontos"></div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="report-header">
+        <div class="report-title">Visual Status Report</div>
+        <div class="report-date">Atualizado em: 06/03/2026</div>
+      </div>
+      <div class="image-container">
+        <img id="setorImagem" src="" alt="Imagem do Setor">
+      </div>
+      <div class="legenda" id="legendaImagem"></div>
+      <div id="navButtons">
+        <button onclick="navegarImagem(-1)">Anterior</button>
+        <button onclick="navegarImagem(1)">Próxima</button>
       </div>
     </div>
   </div>
 
-  <!-- Definição de setores/pontos (ajuste conforme seu projeto) -->
-  <script id="setores-json" type="application/json">
-    {
-      "Doca Geral": 6,
-      "Outro Setor": 4
-    }
-  </script>
-
-  <!-- Seu script principal -->
-  <script src="script.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <script src="script.js" defer></script>
 </body>
 </html>
