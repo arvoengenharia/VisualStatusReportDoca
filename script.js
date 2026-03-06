@@ -1,4 +1,4 @@
-const senhaHash = "";
+const senhaHash = "3b8b122ab7192a110bc6b9a31b16caece92a42383145b62ccaf9b0028a69ae64";
 
 const loginForm = document.getElementById("loginForm");
 const senhaInput = document.getElementById("senhaInput");
