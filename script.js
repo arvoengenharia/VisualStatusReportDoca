@@ -28,22 +28,21 @@ loginForm.addEventListener("submit", function (e) {
   }
 });
 
-let imagemAtualSemana = null;
-let imagemAtualAno = null;
-let setorAtual = null;
-let pontoAtual = null;
-let botaoSelecionado = null;
-let ultimoToken = 0;
+let imagemAtual = null,
+  setorAtual = null,
+  pontoAtual = null,
+  botaoSelecionado = null,
+  ultimoToken = 0;
 
-// limites de semana que você quer permitir (ajuste se quiser mais amplo)
-const SEMANA_MIN = 1;
-const SEMANA_MAX = 99;
+const SEMANA_MIN = 22;   // mesma lógica original
+const SEMANA_MAX = 99;   // mesma lógica original
+const MAX_TENTATIVAS_BUSCA = 15; // limite pra não tentar 80 semanas à toa
 
-// extensões aceitas
-const EXTENSOES = ["jpg", "jpeg", "png"];
+// cache simples de pré-carregamento por path
+const cacheImagens = new Map();
 
 function gerarIdSetor(nome) {
-  return nome.toLowerCase().replace(/\s+/g, '');
+  return nome.toLowerCase().replace(/\s+/g, "");
 }
 
 async function carregarSetores() {
@@ -76,8 +75,7 @@ function trocarImagem(setor, botao) {
   if (setorAtual?.nome === setor.nome) {
     if (pontoAtual !== null) {
       pontoAtual = null;
-      imagemAtualSemana = null;
-      imagemAtualAno = null;
+      imagemAtual = null;
       document.getElementById("setorImagem").src = `setores/${setor.nome}.png`;
       document.getElementById("setorImagem").alt = `Imagem do ${setor.nome}`;
       document.getElementById("legendaImagem").textContent = "";
@@ -91,8 +89,7 @@ function trocarImagem(setor, botao) {
   botaoSelecionado = botao;
   setorAtual = setor;
   pontoAtual = null;
-  imagemAtualSemana = null;
-  imagemAtualAno = null;
+  imagemAtual = null;
 
   document.getElementById("setorImagem").src = `setores/${setor.nome}.png`;
   document.getElementById("setorImagem").alt = `Imagem do ${setor.nome}`;
@@ -112,7 +109,9 @@ function gerarPontos(setor) {
     ponto.classList.add("ponto");
     ponto.innerText = i;
     ponto.onclick = () => {
-      document.querySelectorAll(".ponto").forEach((p) => p.classList.remove("ativo"));
+      document.querySelectorAll(".ponto").forEach((p) =>
+        p.classList.remove("ativo")
+      );
       ponto.classList.add("ativo");
       abrirImagem(setor, i);
     };
@@ -123,162 +122,135 @@ function gerarPontos(setor) {
 function abrirImagem(setor, ponto) {
   setorAtual = setor;
   pontoAtual = ponto;
-  imagemAtualSemana = null;
-  imagemAtualAno = null;
+  imagemAtual = null;
   ultimoToken++;
-
   verificarEmptyOuBuscar(ultimoToken);
 }
 
-// tenta carregar o empty.* (se existir) senão busca imagem mais recente
 function verificarEmptyOuBuscar(token) {
-  const basePath = `pontos/${setorAtual.id}${pontoAtual}/empty`;
-  tentarCarregarComExtensoes(basePath, (okPath) => {
+  const path = `pontos/${setorAtual.id}${pontoAtual}/empty.jpg`;
+  const test = new Image();
+  test.onload = () => {
     if (token !== ultimoToken) return;
-    if (okPath) {
-      document.getElementById("setorImagem").src = okPath;
-      document.getElementById("setorImagem").alt = "Imagem não disponível";
-      document.getElementById("navButtons").style.display = "none";
-      document.getElementById("legendaImagem").textContent = "Nenhuma imagem encontrada";
-    } else {
-      // não tem empty, então vamos direto buscar a primeira imagem válida (mais recente)
-      const hoje = new Date();
-      const semanaAtual = getWeekNumber(hoje);
-      const anoAtual = hoje.getFullYear() % 100; // pega AA (ex: 25)
-      buscarImagemMaisRecente(anoAtual, semanaAtual, token);
-    }
-  });
+    document.getElementById("setorImagem").src = path;
+    document.getElementById("setorImagem").alt = "Imagem não disponível";
+    document.getElementById("navButtons").style.display = "none";
+    document.getElementById("legendaImagem").textContent =
+      "Nenhuma imagem encontrada";
+  };
+  test.onerror = () => {
+    if (token !== ultimoToken) return;
+    buscarPrimeiraImagem(semanaAtual, token, 0);
+  };
+  test.src = path;
 }
 
-// tenta carregar path com qualquer extensão válida
-function tentarCarregarComExtensoes(basePathSemExt, callback) {
-  let indice = 0;
-
-  function tentarProxima() {
-    if (indice >= EXTENSOES.length) {
-      callback(null);
-      return;
-    }
-    const ext = EXTENSOES[indice];
-    const path = `${basePathSemExt}.${ext}`;
-    const img = new Image();
-    img.onload = () => callback(path);
-    img.onerror = () => {
-      indice++;
-      tentarProxima();
-    };
-    img.src = path;
-  }
-
-  tentarProxima();
-}
-
-// busca a imagem mais recente (ano/semana mais alta) descendo semana e depois ano
-function buscarImagemMaisRecente(ano, semana, token) {
-  if (ano < 0) {
-    // nenhum arquivo encontrado
+// agora limitamos quantas semanas vão ser testadas
+function buscarPrimeiraImagem(numero, token, tentativas) {
+  if (numero < SEMANA_MIN || tentativas > MAX_TENTATIVAS_BUSCA) {
     if (token !== ultimoToken) return;
     document.getElementById("setorImagem").src = "";
     document.getElementById("setorImagem").alt = "Imagem não disponível";
     document.getElementById("navButtons").style.display = "none";
-    document.getElementById("legendaImagem").textContent = "Nenhuma imagem encontrada";
+    document.getElementById("legendaImagem").textContent =
+      "Nenhuma imagem encontrada";
     return;
   }
 
-  if (semana < SEMANA_MIN) {
-    // volta um ano e começa do max de semana
-    buscarImagemMaisRecente(ano - 1, SEMANA_MAX, token);
-    return;
-  }
-
-  const rotuloSemana = semana.toString().padStart(2, "0"); // XX
-  const rotuloAno = ano.toString().padStart(2, "0"); // AA
-  const basePath = `pontos/${setorAtual.id}${pontoAtual}/${rotuloAno}-w${rotuloSemana}`;
-
-  tentarCarregarComExtensoes(basePath, (okPath) => {
+  const path = `pontos/${setorAtual.id}${pontoAtual}/w${numero}.jpg`;
+  testarImagem(path, (existe) => {
     if (token !== ultimoToken) return;
-    if (okPath) {
-      imagemAtualSemana = semana;
-      imagemAtualAno = ano;
-      exibirImagemAtual(okPath);
+    if (existe) {
+      imagemAtual = numero;
+      exibirImagemAtual();
       document.getElementById("navButtons").style.display = "flex";
+      // pré-carrega vizinhas para navegação rápida
+      preCarregarVizinhanca(numero);
     } else {
-      buscarImagemMaisRecente(ano, semana - 1, token);
+      buscarPrimeiraImagem(numero - 1, token, tentativas + 1);
     }
   });
 }
 
-function exibirImagemAtual(caminhoOpcional) {
-  let path;
-  if (caminhoOpcional) {
-    path = caminhoOpcional;
-  } else {
-    const rotuloSemana = imagemAtualSemana.toString().padStart(2, "0");
-    const rotuloAno = imagemAtualAno.toString().padStart(2, "0");
-    const basePath = `pontos/${setorAtual.id}${pontoAtual}/${rotuloAno}-w${rotuloSemana}`;
-    // aqui a gente assume que já existe, pois foi validado antes
-    // mas para segurança podemos tentar novamente
-    path = `${basePath}.jpg`;
-  }
-
-  const rotuloSemana = imagemAtualSemana.toString().padStart(2, "0");
-  const rotuloAno = imagemAtualAno.toString().padStart(2, "0");
-
+function exibirImagemAtual() {
+  const path = `pontos/${setorAtual.id}${pontoAtual}/w${imagemAtual}.jpg`;
   document.getElementById("setorImagem").src = path;
-  document.getElementById("setorImagem").alt =
-    `Ponto ${pontoAtual} - ${setorAtual.nome} - ${rotuloAno}-w${rotuloSemana}`;
+  document.getElementById("setorImagem").alt = `Ponto ${pontoAtual} - ${setorAtual.nome} - w${imagemAtual}`;
   document.getElementById("legendaImagem").textContent =
-    `${setorAtual.nome.toUpperCase()} - PONTO ${pontoAtual} - SEMANA ${rotuloSemana} / ANO ${rotuloAno}`;
+    `${setorAtual.nome.toUpperCase()} - PONTO ${pontoAtual} - SEMANA ${imagemAtual}`;
 }
 
-// direção -1 para voltar semana, +1 para avançar
 function navegarImagem(direcao) {
-  if (imagemAtualSemana === null || imagemAtualAno === null) return;
+  if (imagemAtual === null) return;
+  const proximo = imagemAtual + direcao;
+  if (proximo < SEMANA_MIN || proximo > SEMANA_MAX) return;
   ultimoToken++;
-
-  if (direcao === 0) return;
-
-  navegarParaSemana(imagemAtualAno, imagemAtualSemana + direcao, direcao, ultimoToken);
+  verificarImagem(proximo, direcao, ultimoToken, 0);
 }
 
-// tenta navegar semana a semana (e ano a ano, se passar do limite)
-function navegarParaSemana(ano, semana, direcao, token) {
-  if (direcao > 0 && semana > SEMANA_MAX) {
-    // passa para próximo ano
-    navegarParaSemana(ano + 1, SEMANA_MIN, direcao, token);
-    return;
-  }
-  if (direcao < 0 && semana < SEMANA_MIN) {
-    // volta um ano
-    if (ano <= 0) return;
-    navegarParaSemana(ano - 1, SEMANA_MAX, direcao, token);
+function verificarImagem(numero, direcao, token, tentativas) {
+  if (numero < SEMANA_MIN || numero > SEMANA_MAX || tentativas > MAX_TENTATIVAS_BUSCA) {
     return;
   }
 
-  const rotuloSemana = semana.toString().padStart(2, "0");
-  const rotuloAno = ano.toString().padStart(2, "0");
-  const basePath = `pontos/${setorAtual.id}${pontoAtual}/${rotuloAno}-w${rotuloSemana}`;
-
-  tentarCarregarComExtensoes(basePath, (okPath) => {
+  const path = `pontos/${setorAtual.id}${pontoAtual}/w${numero}.jpg`;
+  testarImagem(path, (existe) => {
     if (token !== ultimoToken) return;
-    if (okPath) {
-      imagemAtualSemana = semana;
-      imagemAtualAno = ano;
-      exibirImagemAtual(okPath);
+    if (existe) {
+      imagemAtual = numero;
+      exibirImagemAtual();
+      preCarregarVizinhanca(numero);
     } else {
-      // continua na mesma direção
-      navegarParaSemana(ano, semana + direcao, direcao, token);
+      verificarImagem(numero + direcao, direcao, token, tentativas + 1);
     }
+  });
+}
+
+// função de teste com cache para não ficar rebatendo a mesma URL
+function testarImagem(path, callback) {
+  if (cacheImagens.has(path)) {
+    callback(cacheImagens.get(path));
+    return;
+  }
+
+  const img = new Image();
+  img.onload = () => {
+    cacheImagens.set(path, true);
+    callback(true);
+  };
+  img.onerror = () => {
+    cacheImagens.set(path, false);
+    callback(false);
+  };
+  img.src = path;
+}
+
+// pré-carrega semanas próximas (ex: atual ±2)
+function preCarregarVizinhanca(semanaBase) {
+  const alvos = [semanaBase - 2, semanaBase - 1, semanaBase + 1, semanaBase + 2];
+  alvos.forEach((num) => {
+    if (num < SEMANA_MIN || num > SEMANA_MAX) return;
+    const path = `pontos/${setorAtual.id}${pontoAtual}/w${num}.jpg`;
+    if (cacheImagens.has(path)) return;
+    const img = new Image();
+    img.onload = () => cacheImagens.set(path, true);
+    img.onerror = () => cacheImagens.set(path, false);
+    img.src = path;
   });
 }
 
 function getWeekNumber(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const d = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
   const dayNum = d.getUTCDay() || 7;
   d.setUTCDate(d.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
   return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
 }
+
+const hoje = new Date();
+const semanaAtual = getWeekNumber(hoje);
 
 window.onload = function () {
   const ultimoLogin = parseInt(localStorage.getItem("ultimoLogin"), 10);
